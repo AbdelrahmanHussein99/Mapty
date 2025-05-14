@@ -24,6 +24,9 @@ class Workout {
       months[this.date.getMonth()]
     } ${this.date.getDate()}`;
   }
+  click() {
+    this.clicks++;
+  }
 }
 class Running extends Workout {
   type = "running";
@@ -55,12 +58,15 @@ class Cycling extends Workout {
 
 class App {
   #map;
+  #mapZoom = 13;
   #mapEvent;
   #workouts = [];
   constructor() {
     this._getPosition();
+    this._getLocalStorage();
     form.addEventListener("submit", this._newWorkout.bind(this));
     inputType.addEventListener("change", this._toggleElevationField);
+    containerWorkouts.addEventListener("click", this._moveToPopup.bind(this));
   }
 
   // This immediately executes this._loadMap.call(this) instead of passing a function reference.
@@ -78,7 +84,7 @@ class App {
     const { latitude } = pos.coords;
     const { longitude } = pos.coords;
     const coords = [latitude, longitude];
-    this.#map = L.map("map").setView(coords, 12);
+    this.#map = L.map("map").setView(coords, this.#mapZoom);
 
     L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
       attribution:
@@ -86,6 +92,9 @@ class App {
     }).addTo(this.#map);
 
     this.#map.on("click", this._showForm.bind(this));
+    this.#workouts.forEach((work) => {
+      this._renderWorkoutMaker(work);
+    });
   }
   _showForm(mapE) {
     this.#mapEvent = mapE;
@@ -125,7 +134,6 @@ class App {
       .openPopup();
   }
   _renderWorkout(workout) {
-    console.log(workout);
     let html = `
     <li class="workout workout--${workout.type}" data-id="${workout.id}">
       <h2 class="workout__title">${workout.discrpition}</h2>
@@ -217,12 +225,45 @@ class App {
     }
 
     this.#workouts.push(workout);
-    console.log(workout);
 
     this._renderWorkoutMaker(workout);
     this._renderWorkout(workout);
     this._hideForm();
+    this._SetLocalStorage();
+  }
+  _moveToPopup(e) {
+    const workoutEl = e.target.closest(".workout");
+
+    if (!workoutEl) return;
+    const workoutObj = this.#workouts.find(
+      (work) => work.id === workoutEl.dataset.id
+    );
+    this.#map.setView(workoutObj.coords, this.#mapZoom, {
+      animate: true,
+      pan: {
+        duration: 1,
+      },
+    });
+  }
+
+  _SetLocalStorage() {
+    //  recovered from the local storage just regular objects not running or cycling.will not be able to inherit
+    //objects coming from local storage will not inherit all the methods
+    localStorage.setItem("workouts", JSON.stringify(this.#workouts));
+  }
+
+  _getLocalStorage() {
+    const data = JSON.parse(localStorage.getItem("workouts"));
+    if (!data) return;
+    this.#workouts = data;
+    this.#workouts.forEach((work) => {
+      this._renderWorkout(work);
+    });
+  }
+
+  reset() {
+    localStorage.removeItem("workouts");
+    location.reload();
   }
 }
 const app = new App();
-console.log();
